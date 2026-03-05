@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --color-deako-black: #1D1D1D;
+  --color-glass: #1B3747;
+  --color-glass-light: #1B374799;
+  --color-air-blue: #7597A0;
+  --color-air-blue-dark: #1B3747;
+  --color-beige: #CCC6C0;
+  --color-moss: #889578;
+  --color-moss-dark: #6b7a5e;
+  --color-terra: #BA866A;
+  --color-terra-dark: #9a6e55;
+  --color-white: #FAFAFA;
+}
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #1D1D1D;
+  color: #FAFAFA;
+  min-height: 100vh;
+}
+
+/* Glass card effect */
+.glass {
+  background: rgba(27, 55, 71, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(117, 151, 160, 0.2);
+}
+
+.glass-solid {
+  background: rgba(27, 55, 71, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(117, 151, 160, 0.3);
+}
+
+/* Scanner input pulse */
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(117, 151, 160, 0.4); }
+  50% { border-color: rgba(117, 151, 160, 0.9); }
+}
+
+.scan-input-active {
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+/* Status flash */
+@keyframes flash-success {
+  0% { background-color: rgba(136, 149, 120, 0.4); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-error {
+  0% { background-color: rgba(186, 134, 106, 0.4); }
+  100% { background-color: transparent; }
+}
+
+.flash-success { animation: flash-success 0.6s ease-out; }
+.flash-error { animation: flash-error 0.6s ease-out; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #7597A040; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #7597A080; }
+
+/* Discard alert */
+@keyframes discard-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(186, 134, 106, 0.6); }
+  50% { box-shadow: 0 0 30px 10px rgba(186, 134, 106, 0.3); }
+}
+
+.discard-alert {
+  animation: discard-pulse 1s ease-in-out 3;
+}
+
+/* Traffic-light feedback panels */
+.feedback-success {
+  background: rgba(136, 149, 120, 0.2);
+  border-color: #889578;
+}
+.feedback-warning {
+  background: rgba(218, 165, 32, 0.2);
+  border-color: #daa520;
+}
+.feedback-error {
+  background: rgba(186, 134, 106, 0.2);
+  border-color: #BA866A;
+}
+.feedback-discard {
+  background: rgba(186, 134, 106, 0.3);
+  border-color: #BA866A;
+}
+
+/* Header glow accent */
+.header-glow {
+  box-shadow: 0 1px 0 0 rgba(117, 151, 160, 0.3), 0 4px 20px -4px rgba(117, 151, 160, 0.15);
+}
+
+/* Stat card accent borders */
+.stat-accent-moss { border-bottom: 3px solid #889578; }
+.stat-accent-blue { border-bottom: 3px solid #7597A0; }
+.stat-accent-terra { border-bottom: 3px solid #BA866A; }
+
+/* Instruction arrow pulse */
+@keyframes instruction-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.instruction-pulse {
+  animation: instruction-pulse 2s ease-in-out infinite;
+}

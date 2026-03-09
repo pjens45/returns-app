@@ -76,9 +76,20 @@ export async function seedDatabase() {
   }
 
   // Seed UPC-allowed products (products without serial/lot that can be checked in via UPC barcode)
+  const DEFAULT_UPC_PRODUCTS = [
+    'Multiway Rocker Switch (3 and 4-Way)',
+    '1-Gang Faceplate',
+    '1-Gang Faceplate (Holly)',
+    '1-Gang Faceplate (Mushroom)',
+    '2-Gang Faceplate',
+    '2-Gang Faceplate (Holly)',
+    '2-Gang Faceplate (Mushroom)',
+    '3-Gang Faceplate',
+    '4-Gang Faceplate',
+  ]
   const upcSetting = await db.settings.get('upcAllowedProducts')
-  if (!upcSetting) {
-    await db.settings.put({ key: 'upcAllowedProducts', value: [] })
+  if (!upcSetting || (Array.isArray(upcSetting.value) && upcSetting.value.length === 0)) {
+    await db.settings.put({ key: 'upcAllowedProducts', value: DEFAULT_UPC_PRODUCTS })
   }
 
   // Seed discard list

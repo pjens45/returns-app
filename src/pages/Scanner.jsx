@@ -16,7 +16,6 @@ import { playSuccess, playError, playAction } from '../utils/sounds'
 import { logInfo, logWarn, logError, pruneAppLogs } from '../utils/appLogger'
 import ReportIssueModal from '../components/ReportIssueModal'
 import { sendIssueNotification } from '../utils/issueNotifier'
-import ResumeSessionModal from '../components/ResumeSessionModal'
 import SyncHealthIndicator from '../components/SyncHealthIndicator'
 import { useSyncHealth } from '../hooks/useSyncHealth'
 
@@ -47,7 +46,6 @@ export default function Scanner() {
   const lotPartialsRef = useRef({ lot: null, deviceType: null })
   const lotTimeoutRef = useRef(null)
   const [showFlagModal, setShowFlagModal] = useState(false)
-  const [showResumeModal, setShowResumeModal] = useState(null) // interrupted session object or null
   const [isFirstSession, setIsFirstSession] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
 
@@ -69,26 +67,17 @@ export default function Scanner() {
     pruneAppLogs()
   }, [])
 
-  // Start session (with interrupted-session recovery check)
+  // Start session (auto-close any orphaned sessions, always start fresh)
   useEffect(() => {
     const init = async () => {
-      // Close any orphaned sessions from OTHER operators, then check for our own
+      // Close any orphaned active sessions
       const activeSessions = await db.sessions.where('status').equals('active').toArray()
       const now = new Date().toISOString()
       for (const s of activeSessions) {
-        if (String(s.operatorId) !== String(user.id) && !s.endTime) {
+        if (!s.endTime) {
           await db.sessions.update(s.id, { endTime: now, status: 'completed' })
-          logInfo('session', 'Auto-closed orphaned session from another user', { sessionId: s.id, operatorId: s.operatorId })
+          logInfo('session', 'Auto-closed orphaned session', { sessionId: s.id, operatorId: s.operatorId })
         }
-      }
-      const interrupted = activeSessions.find(s => !s.endTime && String(s.operatorId) === String(user.id))
-
-      if (interrupted) {
-        // Count scans in the interrupted session
-        const scanCount = await db.scans.where('sessionId').equals(interrupted.id).count()
-        setShowResumeModal({ ...interrupted, scanCount })
-        logInfo('session', 'Interrupted session found', { sessionId: interrupted.id, scanCount })
-        return // Don't auto-create new session yet
       }
 
       // First-session detection for onboarding
@@ -113,44 +102,6 @@ export default function Scanner() {
     }
     init()
   }, [user, resetInactivity])
-
-  // Handle session resume
-  const handleResumeSession = async () => {
-    const interrupted = showResumeModal
-    setShowResumeModal(null)
-    // Restore session
-    setSession(interrupted)
-    // Load scans from that session
-    const sessionScans = await db.scans.where('sessionId').equals(interrupted.id).toArray()
-    setScans(sessionScans)
-    // Find the last tracking number
-    const lastTracking = [...sessionScans].reverse().find(s => s.scanType === 'Tracking' && !s.voidedAt)
-    if (lastTracking) setCurrentTracking(lastTracking.value)
-    flash('Session resumed', 'success')
-    logInfo('session', 'Session resumed', { sessionId: interrupted.id, scanCount: sessionScans.length })
-    resetInactivity()
-  }
-
-  const handleStartFresh = async () => {
-    const interrupted = showResumeModal
-    setShowResumeModal(null)
-    // End the interrupted session
-    const now = new Date().toISOString()
-    await db.sessions.update(interrupted.id, { endTime: now, status: 'ended' })
-    logInfo('session', 'Interrupted session ended', { sessionId: interrupted.id })
-    // Create new session
-    const s = {
-      id: uuidv4(),
-      operatorId: user.id,
-      startTime: now,
-      endTime: null,
-      status: 'active',
-    }
-    await db.sessions.put(s)
-    setSession(s)
-    logInfo('session', 'Session started (fresh)', { sessionId: s.id, operatorId: user.id })
-    resetInactivity()
-  }
 
   // Inactivity timeout
   useEffect(() => {
@@ -974,15 +925,6 @@ export default function Scanner() {
     <div className="min-h-screen w-full flex flex-col">
       {/* Hidden always-focused scan input */}
       <ScanInput onScan={handleScan} placeholder="" disabled={inputDisabled} />
-
-      {/* ═══ RESUME SESSION MODAL ═══ */}
-      {showResumeModal && (
-        <ResumeSessionModal
-          session={showResumeModal}
-          onResume={handleResumeSession}
-          onStartFresh={handleStartFresh}
-        />
-      )}
 
       {/* ═══ REPORT ISSUE MODAL ═══ */}
       {showFlagModal && (

@@ -26,16 +26,20 @@ export function useSyncHealth() {
         let health = 'healthy'
         if (failed > 0) {
           health = 'error'
-        } else if (lastSuccess) {
-          const elapsed = Date.now() - new Date(lastSuccess).getTime()
-          if (elapsed > 5 * 60_000) {
-            health = 'error'
-          } else if (pending > 2 || elapsed > 2 * 60_000) {
+        } else if (pending > 0) {
+          // Only flag staleness if there are items waiting to sync
+          if (lastSuccess) {
+            const elapsed = Date.now() - new Date(lastSuccess).getTime()
+            if (elapsed > 5 * 60_000) {
+              health = 'error'
+            } else if (pending > 2 || elapsed > 2 * 60_000) {
+              health = 'pending'
+            }
+          } else {
             health = 'pending'
           }
-        } else if (pending > 0) {
-          health = 'pending'
         }
+        // If pending === 0 and failed === 0, always healthy
 
         setState({ pending, failed, lastSuccess, health })
       } catch {

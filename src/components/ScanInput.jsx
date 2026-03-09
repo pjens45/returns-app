@@ -43,7 +43,7 @@ export default function ScanInput({ onScan, placeholder, disabled }) {
     // avoiding the "focus is set then immediately stolen" race.
     setTimeout(() => {
       if (!disabledRef.current) {
-        inputRef.current?.focus()
+        inputRef.current?.focus({ preventScroll: true })
       }
     }, 0)
   }, [])
@@ -127,7 +127,7 @@ export default function ScanInput({ onScan, placeholder, disabled }) {
     if (pasted) {
       onScan(pasted)
       inputRef.current.value = ''
-      setTimeout(() => inputRef.current?.focus(), 10)
+      setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 10)
     }
   }
 
@@ -152,8 +152,8 @@ export default function ScanInput({ onScan, placeholder, disabled }) {
           setTimeout(() => grabFocus(), 60)
         }
       }}
-      className="absolute opacity-0 pointer-events-none"
-      style={{ position: 'absolute', left: '-9999px' }}
+      className="opacity-0 pointer-events-none"
+      style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1 }}
       tabIndex={0}
     />
   )

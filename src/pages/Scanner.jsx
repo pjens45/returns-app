@@ -695,17 +695,29 @@ export default function Scanner() {
           if (entered) {
             await handleLotScan(value)
           }
+        } else if (value) {
+          // Manual serial/product entry — treat as a product scan even if format is non-standard
+          const productType = getProductType(value)
+          await addScan({
+            scanType: 'Serial',
+            value,
+            productType,
+            status: 'OK',
+            notes: note || 'Manual entry',
+            trackingNumber: currentTracking,
+          })
+          flash(productType !== 'Unknown Product' ? `${productType}: ${value}` : `Manual entry logged: ${value}`, 'success')
         } else {
-          // Freeform manual note (odd item, note-only, etc.)
+          // Note-only (no value)
           await addScan({
             scanType: 'Manual Note',
-            value: value || 'N/A',
-            productType: value ? getProductType(value) : '',
+            value: 'N/A',
+            productType: '',
             status: 'OK',
             notes: note || '',
             trackingNumber: currentTracking,
           })
-          flash('Manual entry logged', 'success')
+          flash('Note logged', 'success')
         }
       }
     } finally {

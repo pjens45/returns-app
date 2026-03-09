@@ -11,11 +11,11 @@
  *    - Execute as: Me
  *    - Who has access: Anyone
  * 5. Copy the Web App URL — use as VITE_SHEETS_WEBHOOK_URL in .env.local.
- * 6. On redeployment, always create a NEW deployment (don't edit existing)
- *    so the URL reflects the latest code.
+ * 6. On redeployment, always create a NEW VERSION of existing deployment.
  */
 
 var SHEET_NAME = 'Scans';
+var NOTIFY_EMAIL = 'returnsapp@deako.com';
 var HEADERS = [
   'Scan_ID', 'Device_ID', 'Timestamp', 'Updated_At',
   'Session_ID', 'Operator_ID', 'Scan_Type', 'Value',
@@ -38,7 +38,16 @@ function doGet(e) {
 
   var result;
   try {
-    result = handleRequest(e.parameter);
+    var action = (e.parameter.action || '').toString();
+    if (action === 'issueReport') {
+      result = handleIssueReport(e.parameter);
+    } else if (action === 'logExport') {
+      result = handleLogExport(e.parameter);
+    } else if (action === 'unknownProduct') {
+      result = handleUnknownProduct(e.parameter);
+    } else {
+      result = handleRequest(e.parameter);
+    }
   } catch (err) {
     result = { ok: false, error: String(err) };
   }
@@ -67,7 +76,7 @@ function doPost(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ---------- CORE LOGIC ----------
+// ---------- CORE SYNC LOGIC ----------
 
 function handleRequest(params) {
   // Validate secret
@@ -252,4 +261,117 @@ function buildRow(rec, syncedAt) {
     rec.Notes || '',
     syncedAt
   ];
+}
+
+// ---------- ISSUE REPORT HANDLER ----------
+
+function handleIssueReport(params) {
+  var expectedSecret = PropertiesService.getScriptProperties().getProperty('WEBHOOK_SECRET');
+  var secret = params.secret || '';
+  if (!expectedSecret || secret !== expectedSecret) {
+    return { ok: false, error: 'Unauthorized' };
+  }
+
+  var category = params.category || 'Unknown';
+  var note = params.note || '';
+  var trackingNumber = params.trackingNumber || '';
+  var operatorName = params.operatorName || '';
+  var timestamp = params.timestamp || new Date().toISOString();
+  var deviceId = params.deviceId || '';
+
+  // Send email
+  var subject = '[Returns App] Issue Report: ' + category;
+  var body = 'An operator reported an issue:\n\n' +
+    'Category: ' + category + '\n' +
+    'Note: ' + note + '\n' +
+    'Tracking #: ' + trackingNumber + '\n' +
+    'Operator: ' + operatorName + '\n' +
+    'Device: ' + deviceId + '\n' +
+    'Time: ' + timestamp + '\n';
+
+  try {
+    MailApp.sendEmail(NOTIFY_EMAIL, subject, body);
+  } catch (err) {
+    return { ok: false, error: 'Email failed: ' + String(err) };
+  }
+
+  // Log to Issues sheet tab
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var issueSheet = ss.getSheetByName('Issues');
+    if (!issueSheet) {
+      issueSheet = ss.insertSheet('Issues');
+      issueSheet.getRange(1, 1, 1, 7).setValues([['Timestamp', 'Operator', 'Category', 'Note', 'Tracking', 'Device', 'Received_At']]);
+      issueSheet.setFrozenRows(1);
+      issueSheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+    }
+    issueSheet.appendRow([timestamp, operatorName, category, note, trackingNumber, deviceId, new Date().toISOString()]);
+  } catch (err) {
+    // Non-fatal — email already sent
+  }
+
+  return { ok: true, action: 'issueReport' };
+}
+
+// ---------- LOG EXPORT HANDLER ----------
+
+function handleLogExport(params) {
+  var expectedSecret = PropertiesService.getScriptProperties().getProperty('WEBHOOK_SECRET');
+  var secret = params.secret || '';
+  if (!expectedSecret || secret !== expectedSecret) {
+    return { ok: false, error: 'Unauthorized' };
+  }
+
+  var logCount = params.logCount || '0';
+  var summary = params.summary || '(empty)';
+  var timestamp = params.timestamp || new Date().toISOString();
+
+  var subject = '[Returns App] Log Export — ' + logCount + ' warn/error entries';
+  var body = 'App log export at ' + timestamp + '\n' +
+    'Total warn/error entries: ' + logCount + '\n\n' +
+    '--- LOG SUMMARY ---\n' + summary;
+
+  try {
+    MailApp.sendEmail(NOTIFY_EMAIL, subject, body);
+  } catch (err) {
+    return { ok: false, error: 'Email failed: ' + String(err) };
+  }
+
+  return { ok: true, action: 'logExport' };
+}
+
+// ---------- UNKNOWN PRODUCT HANDLER ----------
+
+function handleUnknownProduct(params) {
+  var expectedSecret = PropertiesService.getScriptProperties().getProperty('WEBHOOK_SECRET');
+  var secret = params.secret || '';
+  if (!expectedSecret || secret !== expectedSecret) {
+    return { ok: false, error: 'Unauthorized' };
+  }
+
+  var serialValue = params.serialValue || '';
+  var prefix = params.prefix || '';
+  var operatorName = params.operatorName || '';
+  var trackingNumber = params.trackingNumber || '';
+  var timestamp = params.timestamp || new Date().toISOString();
+  var deviceId = params.deviceId || '';
+
+  var subject = '[Returns App] Unknown Product Scanned — Prefix: ' + prefix;
+  var body = 'An unknown product was scanned:\n\n' +
+    'Serial: ' + serialValue + '\n' +
+    'Prefix: ' + prefix + '\n' +
+    'Operator: ' + operatorName + '\n' +
+    'Tracking #: ' + trackingNumber + '\n' +
+    'Device: ' + deviceId + '\n' +
+    'Time: ' + timestamp + '\n\n' +
+    'This prefix is not in the product map. If this is a known Deako product, ' +
+    'please update PRODUCT_PREFIX_MAP in src/utils/helpers.js.';
+
+  try {
+    MailApp.sendEmail(NOTIFY_EMAIL, subject, body);
+  } catch (err) {
+    return { ok: false, error: 'Email failed: ' + String(err) };
+  }
+
+  return { ok: true, action: 'unknownProduct' };
 }

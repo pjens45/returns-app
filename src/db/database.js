@@ -2,6 +2,11 @@ import Dexie from 'dexie'
 
 export const db = new Dexie('ReturnsCheckIn')
 
+// Handle version-upgrade blocks (e.g. old tab holding older schema)
+db.on('blocked', () => {
+  console.warn('[Dexie] DB upgrade blocked — close other tabs and refresh.')
+})
+
 db.version(3).stores({
   users: 'id, username, role',
   sessions: 'id, operatorId, startTime, endTime, status',
@@ -27,6 +32,17 @@ db.version(5).stores({
   discardLots: '++id, lot',
   settings: 'key',
   syncQueue: '++id, recordId, enqueuedAt, attempts',
+})
+
+db.version(6).stores({
+  users: 'id, username, role',
+  sessions: 'id, operatorId, startTime, endTime, status',
+  scans: '++id, sessionId, operatorId, timestamp, scanType, value, status, trackingNumber',
+  discardList: 'serial',
+  discardLots: '++id, lot',
+  settings: 'key',
+  syncQueue: '++id, recordId, enqueuedAt, attempts',
+  appLogs: '++id, timestamp, level, category',
 })
 
 // Get or create a stable device ID for this workstation

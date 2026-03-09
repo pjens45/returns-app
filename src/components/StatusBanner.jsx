@@ -21,6 +21,7 @@ export default function StatusBanner({ message, type, onDismiss }) {
     error: 'bg-terra/20 border-terra text-terra',
     discard: 'bg-terra/30 border-terra text-terra discard-alert',
     'discard-lot': 'bg-yellow-500/20 border-yellow-500 text-yellow-300 discard-alert',
+    flag: 'bg-yellow-500/15 border-yellow-500/60 text-yellow-300',
     duplicate: 'bg-air-blue/20 border-air-blue text-air-blue',
     info: 'bg-air-blue/10 border-air-blue/50 text-air-blue',
   }

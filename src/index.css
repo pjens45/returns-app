@@ -121,3 +121,12 @@ body {
 .instruction-pulse {
   animation: instruction-pulse 2s ease-in-out infinite;
 }
+
+/* Scan input idle glow */
+@keyframes scan-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(117, 151, 160, 0); }
+  50% { box-shadow: 0 0 20px 4px rgba(117, 151, 160, 0.25); }
+}
+.scan-glow {
+  animation: scan-glow 2.5s ease-in-out infinite;
+}

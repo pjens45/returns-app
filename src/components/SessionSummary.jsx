@@ -22,7 +22,7 @@ export default function SessionSummary({ scans, session, onClose }) {
 
         {escalated.length > 0 && (
           <div className="px-4 py-3 rounded-lg bg-terra/20 border-2 border-terra text-terra text-center font-semibold">
-            &#9888; {escalated.length} item{escalated.length !== 1 ? 's' : ''} flagged for review
+            &#9888; {escalated.length} issue{escalated.length !== 1 ? 's' : ''} reported
           </div>
         )}
 

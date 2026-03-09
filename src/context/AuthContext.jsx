@@ -13,14 +13,32 @@ export function AuthProvider({ children }) {
   const onTimeoutRef = useRef(null)
 
   useEffect(() => {
-    seedDatabase().then(() => {
+    const init = async () => {
+      try {
+        // Explicitly open the DB first — surfaces version-upgrade blocks quickly
+        await db.open()
+        await seedDatabase()
+      } catch (err) {
+        console.error('[Auth] DB init failed:', err)
+        // If the DB is blocked (old tab holding v5), delete and retry once
+        if (err.name === 'UpgradeError' || err.message?.includes('blocked')) {
+          console.warn('[Auth] DB blocked — deleting and retrying')
+          try {
+            await db.delete()
+            await db.open()
+            await seedDatabase()
+          } catch (retryErr) {
+            console.error('[Auth] DB retry also failed:', retryErr)
+          }
+        }
+      }
       const saved = sessionStorage.getItem('currentUser')
       if (saved) {
-        const parsed = JSON.parse(saved)
-        setUser(parsed)
+        try { setUser(JSON.parse(saved)) } catch { /* noop */ }
       }
       setLoading(false)
-    })
+    }
+    init()
   }, [])
 
   useEffect(() => {

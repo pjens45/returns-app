@@ -1,5 +1,6 @@
 import { getPending, dequeueProcessed, markFailed, setLastSuccessTime } from './syncQueue'
 import { scanToSheetRecord } from './syncHelpers'
+import { logInfo, logWarn, logError } from '../utils/appLogger'
 
 const WEBHOOK_URL = import.meta.env.VITE_SHEETS_WEBHOOK_URL || ''
 const WEBHOOK_SECRET = import.meta.env.VITE_SHEETS_WEBHOOK_SECRET || ''
@@ -45,6 +46,7 @@ async function tick() {
   try {
     const pending = await getPending(MAX_PER_FLUSH)
     if (pending.length === 0) return
+    logInfo('sync', `Sync tick: ${pending.length} pending`, { count: pending.length })
 
     // Split into chunks of BATCH_SIZE
     const chunks = []
@@ -59,6 +61,7 @@ async function tick() {
     }
   } catch (err) {
     console.error('[SyncEngine] tick error:', err)
+    logError('sync', 'Sync tick error', { error: String(err) })
   } finally {
     running = false
   }
@@ -90,16 +93,19 @@ async function processChunk(queueItems) {
     if (resp && resp.ok) {
       await dequeueProcessed(queueItems.map(item => item.id))
       await setLastSuccessTime(new Date().toISOString())
+      logInfo('sync', `Chunk synced: ${records.length} records`, { batchSize: records.length })
     } else {
       const error = resp?.error || 'Unknown error from server'
       for (const item of queueItems) {
         await markFailed(item.id, `Server error: ${error} (urlLen=${urlLen}, batchSize=${records.length})`)
       }
+      logWarn('sync', 'Chunk failed (server)', { error, batchSize: records.length })
     }
   } catch (err) {
     for (const item of queueItems) {
       await markFailed(item.id, `${String(err)} (urlLen=${urlLen}, batchSize=${records.length})`)
     }
+    logError('sync', 'Chunk failed (exception)', { error: String(err), batchSize: records.length })
   }
 }
 

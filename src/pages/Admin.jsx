@@ -5,6 +5,7 @@ import { db, getDeviceId } from '../db/database'
 import { generateCSV, generateCSVRows, CSV_HEADERS, generateTrackingSummaryCSV, downloadCSV, formatTimestamp, PRODUCT_PREFIX_MAP } from '../utils/helpers'
 import { getPendingCount, getFailedCount, getLastSuccessTime, enqueueSync } from '../sync/syncQueue'
 import { flushNow } from '../sync/syncEngine'
+import { logInfo } from '../utils/appLogger'
 
 const MODES = [
   { value: 'tracking_only', label: 'Tracking Only' },
@@ -32,6 +33,10 @@ export default function Admin() {
   const [newDiscardLotReason, setNewDiscardLotReason] = useState('')
   const [message, setMessage] = useState('')
 
+  // Logs
+  const [logs, setLogs] = useState([])
+  const [logFilter, setLogFilter] = useState('all') // all, warn, error
+
   // Sync status
   const [syncPending, setSyncPending] = useState(0)
   const [syncFailed, setSyncFailed] = useState(0)
@@ -40,6 +45,20 @@ export default function Admin() {
 
   useEffect(() => {
     loadData()
+  }, [tab])
+
+  // Load logs when logs tab is active
+  useEffect(() => {
+    if (tab !== 'logs') return
+    const loadLogs = async () => {
+      try {
+        const allLogs = await db.appLogs.orderBy('timestamp').reverse().limit(500).toArray()
+        setLogs(allLogs)
+      } catch { setLogs([]) }
+    }
+    loadLogs()
+    const id = setInterval(loadLogs, 5000)
+    return () => clearInterval(id)
   }, [tab])
 
   // Poll sync status every 5s when sync tab is active
@@ -296,6 +315,7 @@ export default function Admin() {
             { id: 'sessions', label: 'Sessions' },
             { id: 'export', label: 'Export' },
             { id: 'sync', label: 'Sync' },
+            { id: 'logs', label: 'Logs' },
           ].map(t => (
             <button
               key={t.id}
@@ -671,6 +691,66 @@ export default function Admin() {
                 <div>deviceId: {devDeviceId || '\u2026'}</div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Logs Tab */}
+        {tab === 'logs' && (
+          <div className="glass rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-air-blue uppercase tracking-wider">App Logs</h2>
+              <div className="flex gap-2">
+                {['all', 'warn', 'error'].map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setLogFilter(f)}
+                    className={`px-3 py-1 rounded text-xs font-medium transition ${
+                      logFilter === f
+                        ? 'bg-air-blue text-white'
+                        : 'bg-deako-black/40 text-air-blue/50 hover:text-air-blue border border-air-blue/10'
+                    }`}
+                  >
+                    {f === 'all' ? 'All' : f === 'warn' ? 'Warnings' : 'Errors'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
+              {logs
+                .filter(l => logFilter === 'all' || l.level === logFilter)
+                .map(l => (
+                  <div
+                    key={l.id}
+                    className={`px-3 py-2 rounded-lg text-xs border ${
+                      l.level === 'error' ? 'bg-terra/10 border-terra/20 text-terra' :
+                      l.level === 'warn' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300' :
+                      'bg-deako-black/30 border-air-blue/10 text-beige/80'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="font-mono text-air-blue/40">{formatTimestamp(l.timestamp)}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        l.level === 'error' ? 'bg-terra/20 text-terra' :
+                        l.level === 'warn' ? 'bg-yellow-500/20 text-yellow-300' :
+                        'bg-air-blue/15 text-air-blue/60'
+                      }`}>{l.level}</span>
+                      <span className="text-air-blue/40">{l.category}</span>
+                    </div>
+                    <p className="text-white/90">{l.message}</p>
+                    {l.context && l.context !== '{}' && (
+                      <details className="mt-1">
+                        <summary className="text-air-blue/30 cursor-pointer hover:text-air-blue/50 text-[10px]">context</summary>
+                        <pre className="mt-1 text-[10px] text-air-blue/40 font-mono whitespace-pre-wrap break-all">{l.context}</pre>
+                      </details>
+                    )}
+                  </div>
+                ))}
+              {logs.filter(l => logFilter === 'all' || l.level === logFilter).length === 0 && (
+                <p className="text-sm text-air-blue/40 text-center py-8">
+                  {logFilter === 'all' ? 'No logs yet' : `No ${logFilter} logs`}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </main>

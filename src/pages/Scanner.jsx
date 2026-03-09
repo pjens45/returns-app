@@ -13,6 +13,12 @@ import ManualEntryModal from '../components/ManualEntryModal'
 import SessionSummary from '../components/SessionSummary'
 import ReportProblemModal from '../components/ReportProblemModal'
 import { playSuccess, playError, playAction } from '../utils/sounds'
+import { logInfo, logWarn, logError, pruneAppLogs } from '../utils/appLogger'
+import ReportIssueModal from '../components/ReportIssueModal'
+import { sendIssueNotification } from '../utils/issueNotifier'
+import ResumeSessionModal from '../components/ResumeSessionModal'
+import SyncHealthIndicator from '../components/SyncHealthIndicator'
+import { useSyncHealth } from '../hooks/useSyncHealth'
 
 export default function Scanner() {
   const { user, logout, resetInactivity, setOnTimeout, timeoutWarning } = useAuth()
@@ -40,7 +46,12 @@ export default function Scanner() {
   const [lotPartials, setLotPartials] = useState({ lot: null, deviceType: null }) // collected so far
   const lotPartialsRef = useRef({ lot: null, deviceType: null })
   const lotTimeoutRef = useRef(null)
+  const [showFlagModal, setShowFlagModal] = useState(false)
+  const [showResumeModal, setShowResumeModal] = useState(null) // interrupted session object or null
+  const [isFirstSession, setIsFirstSession] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(false)
 
+  const syncHealth = useSyncHealth()
   const mode = user?.mode || 'tracking_serial'
   const processingRef = useRef(false)
   const sessionRef = useRef(session)
@@ -51,25 +62,95 @@ export default function Scanner() {
   // Active (non-voided) scans — used everywhere for counts, logic, display
   const activeScans = scans.filter(s => !s.voidedAt)
 
-  // Load device ID and UPC-allowed products
+  // Load device ID, UPC-allowed products, and prune old logs
   useEffect(() => {
     getDeviceId().then(id => { deviceIdRef.current = id; setDeviceId(id) })
     db.settings.get('upcAllowedProducts').then(s => setUpcAllowedProducts(s?.value || []))
+    pruneAppLogs()
   }, [])
 
-  // Start session
+  // Start session (with interrupted-session recovery check)
   useEffect(() => {
+    const init = async () => {
+      // Close any orphaned sessions from OTHER operators, then check for our own
+      const activeSessions = await db.sessions.where('status').equals('active').toArray()
+      const now = new Date().toISOString()
+      for (const s of activeSessions) {
+        if (String(s.operatorId) !== String(user.id) && !s.endTime) {
+          await db.sessions.update(s.id, { endTime: now, status: 'completed' })
+          logInfo('session', 'Auto-closed orphaned session from another user', { sessionId: s.id, operatorId: s.operatorId })
+        }
+      }
+      const interrupted = activeSessions.find(s => !s.endTime && String(s.operatorId) === String(user.id))
+
+      if (interrupted) {
+        // Count scans in the interrupted session
+        const scanCount = await db.scans.where('sessionId').equals(interrupted.id).count()
+        setShowResumeModal({ ...interrupted, scanCount })
+        logInfo('session', 'Interrupted session found', { sessionId: interrupted.id, scanCount })
+        return // Don't auto-create new session yet
+      }
+
+      // First-session detection for onboarding
+      const priorSessions = await db.sessions.where('operatorId').equals(user.id).count()
+      if (priorSessions === 0) {
+        setIsFirstSession(true)
+        setShowWelcome(true)
+      }
+
+      // Create new session
+      const s = {
+        id: uuidv4(),
+        operatorId: user.id,
+        startTime: new Date().toISOString(),
+        endTime: null,
+        status: 'active',
+      }
+      await db.sessions.put(s)
+      setSession(s)
+      logInfo('session', 'Session started', { sessionId: s.id, operatorId: user.id })
+      resetInactivity()
+    }
+    init()
+  }, [user, resetInactivity])
+
+  // Handle session resume
+  const handleResumeSession = async () => {
+    const interrupted = showResumeModal
+    setShowResumeModal(null)
+    // Restore session
+    setSession(interrupted)
+    // Load scans from that session
+    const sessionScans = await db.scans.where('sessionId').equals(interrupted.id).toArray()
+    setScans(sessionScans)
+    // Find the last tracking number
+    const lastTracking = [...sessionScans].reverse().find(s => s.scanType === 'Tracking' && !s.voidedAt)
+    if (lastTracking) setCurrentTracking(lastTracking.value)
+    flash('Session resumed', 'success')
+    logInfo('session', 'Session resumed', { sessionId: interrupted.id, scanCount: sessionScans.length })
+    resetInactivity()
+  }
+
+  const handleStartFresh = async () => {
+    const interrupted = showResumeModal
+    setShowResumeModal(null)
+    // End the interrupted session
+    const now = new Date().toISOString()
+    await db.sessions.update(interrupted.id, { endTime: now, status: 'ended' })
+    logInfo('session', 'Interrupted session ended', { sessionId: interrupted.id })
+    // Create new session
     const s = {
       id: uuidv4(),
       operatorId: user.id,
-      startTime: new Date().toISOString(),
+      startTime: now,
       endTime: null,
       status: 'active',
     }
-    db.sessions.put(s)
+    await db.sessions.put(s)
     setSession(s)
+    logInfo('session', 'Session started (fresh)', { sessionId: s.id, operatorId: user.id })
     resetInactivity()
-  }, [user, resetInactivity])
+  }
 
   // Inactivity timeout
   useEffect(() => {
@@ -77,6 +158,18 @@ export default function Scanner() {
       endSession()
     })
   }, [setOnTimeout])
+
+  // Cleanup: close active session when Scanner unmounts (logout, nav away, tab close)
+  useEffect(() => {
+    return () => {
+      const sid = sessionRef.current?.id
+      if (sid && !sessionRef.current?.endTime) {
+        const now = new Date().toISOString()
+        db.sessions.update(sid, { endTime: now, status: 'completed' }).catch(() => {})
+        logInfo('session', 'Session auto-closed on unmount', { sessionId: sid })
+      }
+    }
+  }, [])
 
   // Cmd/Ctrl+Z for undo
   useEffect(() => {
@@ -222,7 +315,7 @@ export default function Scanner() {
     setStatus({ message, type })
     // Audio feedback
     if (type === 'success') playSuccess()
-    else if (type === 'action' || type === 'discard-lot') playAction()
+    else if (type === 'action' || type === 'discard-lot' || type === 'flag') playAction()
     else if (type === 'error' || type === 'duplicate' || type === 'discard' || type === 'warning') playError()
     resetInactivity()
   }
@@ -251,8 +344,10 @@ export default function Scanner() {
       setScans(prev => [...prev, scan])
       setFailCount(0)
       enqueueSync(scan)
+      logInfo('scan', `${scanData.scanType} recorded: ${scanData.value}`, { scanType: scanData.scanType, value: scanData.value, status: scanData.status, productType: scanData.productType })
     } catch (err) {
       console.error('[DB WRITE FAILED] addScan:', err)
+      logError('scan', 'Failed to save scan', { error: String(err), scanType: scanData.scanType, value: scanData.value })
       flash('Failed to save scan — please try again', 'error')
     }
   }
@@ -693,11 +788,54 @@ export default function Scanner() {
     flash(`Problem reported: ${reason}`, 'info')
   }
 
+  // --- REPORT AN ISSUE ---
+  const handleReportIssue = async (category, note) => {
+    setShowFlagModal(false)
+    setInputDisabled(false)
+    const now = new Date().toISOString()
+    const scan = {
+      scanUuid: crypto.randomUUID(),
+      deviceId: deviceIdRef.current,
+      sessionId: sessionRef.current.id,
+      operatorId: user.id,
+      scanType: 'Manual Note',
+      value: `ISSUE-${Date.now()}`,
+      productType: '',
+      status: 'Flagged',
+      escalationReason: category,
+      notes: note ? `[ISSUE: ${category}] ${note}` : `[ISSUE: ${category}]`,
+      trackingNumber: currentTracking || '',
+      carrier: '',
+      timestamp: now,
+      updatedAt: now,
+    }
+    try {
+      const id = await db.scans.add(scan)
+      scan.id = id
+      setScans(prev => [...prev, scan])
+      enqueueSync(scan)
+      sendIssueNotification({
+        category,
+        note: note || '',
+        trackingNumber: currentTracking || '',
+        operatorName: user.username,
+        timestamp: now,
+        deviceId: deviceIdRef.current,
+      })
+      logInfo('scan', 'Issue reported', { category, hasTracking: !!currentTracking, note: note || '' })
+    } catch (err) {
+      logError('scan', 'Failed to report issue', { error: String(err) })
+      flash('Failed to save report — please try again', 'error')
+    }
+  }
+
   const endSession = async () => {
     const endTime = new Date().toISOString()
     if (sessionRef.current) {
       await db.sessions.update(sessionRef.current.id, { endTime, status: 'completed' })
       setSession(prev => ({ ...prev, endTime, status: 'completed' }))
+      const itemCount = scansRef.current.filter(s => !s.voidedAt).length
+      logInfo('session', 'Session ended', { sessionId: sessionRef.current.id, scanCount: itemCount })
     }
     setShowSummary(true)
   }
@@ -721,11 +859,13 @@ export default function Scanner() {
     return 'Scan serial number...'
   }
 
-  const serialCount = activeScans.filter(s => s.scanType === 'Serial' || s.scanType === 'Lot').length
-  const trackingCount = activeScans.filter(s => s.scanType === 'Tracking').length
-  const escalatedCount = activeScans.filter(s => s.status === 'Escalated').length
+  // Exclude issue reports from product counts and display
+  const productScans = activeScans.filter(s => s.scanType !== 'Manual Note')
+  const serialCount = productScans.filter(s => s.scanType === 'Serial' || s.scanType === 'Lot').length
+  const trackingCount = productScans.filter(s => s.scanType === 'Tracking').length
+  const escalatedCount = productScans.filter(s => s.status === 'Escalated').length
   const currentTrackingSerials = currentTracking
-    ? activeScans.filter(s => (s.scanType === 'Serial' || s.scanType === 'Lot') && s.trackingNumber === currentTracking).length
+    ? productScans.filter(s => (s.scanType === 'Serial' || s.scanType === 'Lot') && s.trackingNumber === currentTracking).length
     : 0
 
   // What kind of manual entry is needed right now?
@@ -733,13 +873,13 @@ export default function Scanner() {
     ? 'tracking'
     : 'serial'
 
-  // Derive "just scanned" = most recent non-tracking active scan
-  const lastScan = activeScans.length > 0 ? activeScans[activeScans.length - 1] : null
+  // Derive "just scanned" = most recent non-tracking, non-issue active scan
+  const lastScan = productScans.length > 0 ? productScans[productScans.length - 1] : null
 
-  // Items in the current box (serials/lots under currentTracking)
+  // Items in the current box (serials/lots under currentTracking — excludes issue reports)
   const currentBoxItems = currentTracking
-    ? activeScans.filter(s => s.scanType !== 'Tracking' && s.trackingNumber === currentTracking)
-    : activeScans.filter(s => s.scanType !== 'Tracking')
+    ? productScans.filter(s => s.scanType !== 'Tracking' && s.trackingNumber === currentTracking)
+    : productScans.filter(s => s.scanType !== 'Tracking')
 
   // Build instruction text
   const getInstructionText = () => {
@@ -752,13 +892,15 @@ export default function Scanner() {
     if (mode === 'tracking_only') return 'SCAN THE NEXT BOX TRACKING NUMBER'
     if (mode === 'serial_only') return 'SCAN THE NEXT ITEM'
     if (currentTracking === null) return 'SCAN A BOX TRACKING NUMBER TO START'
-    return 'SCAN THE NEXT ITEM  —  OR  —  START A NEW BOX'
+    if (currentTrackingSerials === 0) return 'NOW SCAN THE ITEMS INSIDE THIS BOX'
+    return 'SCAN NEXT ITEM  —  OR  —  NEW BOX'
   }
 
   // Determine feedback type for "Just Scanned" panel
   const getFeedbackType = () => {
     if (!status) return null
     if (status.type === 'success') return 'success'
+    if (status.type === 'flag') return 'warning'
     if (status.type === 'discard' || status.type === 'discard-lot') return 'discard'
     if (status.type === 'error') return 'error'
     if (status.type === 'warning') return 'warning'
@@ -790,10 +932,10 @@ export default function Scanner() {
     if (mode === 'serial_only') return []
     const groups = []
     const seen = new Set()
-    for (const s of activeScans) {
+    for (const s of productScans) {
       if (s.scanType === 'Tracking' && s.value !== currentTracking && !seen.has(s.value)) {
         seen.add(s.value)
-        const count = activeScans.filter(x => x.scanType !== 'Tracking' && x.trackingNumber === s.value).length
+        const count = productScans.filter(x => x.scanType !== 'Tracking' && x.trackingNumber === s.value).length
         groups.push({ tracking: s.value, count })
       }
     }
@@ -821,11 +963,30 @@ export default function Scanner() {
       {/* Hidden always-focused scan input */}
       <ScanInput onScan={handleScan} placeholder="" disabled={inputDisabled} />
 
+      {/* ═══ RESUME SESSION MODAL ═══ */}
+      {showResumeModal && (
+        <ResumeSessionModal
+          session={showResumeModal}
+          onResume={handleResumeSession}
+          onStartFresh={handleStartFresh}
+        />
+      )}
+
+      {/* ═══ REPORT ISSUE MODAL ═══ */}
+      {showFlagModal && (
+        <ReportIssueModal
+          trackingNumber={currentTracking}
+          onSubmit={handleReportIssue}
+          onCancel={() => { setShowFlagModal(false); setInputDisabled(false) }}
+        />
+      )}
+
       {/* ═══ HEADER ═══ */}
       <header className="glass-solid header-glow px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-white tracking-tight">Returns Check-In</h1>
           <span className="text-sm text-beige/60">{user?.username}</span>
+          <SyncHealthIndicator {...syncHealth} />
         </div>
         <div className="flex items-center gap-3">
           {user?.role === 'admin' && (
@@ -854,31 +1015,52 @@ export default function Scanner() {
 
       <main className="flex-1 p-4 max-w-2xl w-full mx-auto space-y-5 pb-8">
 
-        {/* ═══ YOUR PROGRESS ═══ */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="glass stat-accent-moss rounded-xl py-4 px-3 text-center">
-            <p className="text-4xl font-black text-white">{trackingCount}</p>
-            <p className="text-xs text-moss font-medium mt-1 uppercase tracking-wider">Boxes</p>
+        {/* ═══ WELCOME BANNER (first session only) ═══ */}
+        {showWelcome && (
+          <div className="rounded-xl p-5 bg-moss/15 border-2 border-moss/40 text-center space-y-2">
+            <p className="text-sm font-bold text-moss uppercase tracking-wider">Welcome to Returns Check-In</p>
+            <p className="text-xs text-beige/80 leading-relaxed">
+              Scan a <span className="text-white font-medium">box tracking number</span> to start, then scan each <span className="text-white font-medium">item inside</span>. When the box is done, scan the next tracking number.
+            </p>
+            <button
+              onClick={() => setShowWelcome(false)}
+              className="mt-1 text-xs px-4 py-1.5 rounded-lg border border-moss/30 text-moss hover:bg-moss/20 transition font-medium"
+            >
+              Got it
+            </button>
           </div>
-          <div className="glass stat-accent-blue rounded-xl py-4 px-3 text-center">
-            <p className="text-4xl font-black text-white">{serialCount}</p>
-            <p className="text-xs text-air-blue font-medium mt-1 uppercase tracking-wider">Items</p>
-          </div>
-          <div className="glass stat-accent-terra rounded-xl py-4 px-3 text-center">
-            <p className={`text-4xl font-black ${escalatedCount > 0 ? 'text-terra' : 'text-white'}`}>{escalatedCount}</p>
-            <p className="text-xs text-terra font-medium mt-1 uppercase tracking-wider">Problems</p>
-          </div>
-        </div>
+        )}
 
-        {/* ═══ CURRENT BOX ═══ */}
+        {/* ═══ CURRENT BOX (primary focus) ═══ */}
         {mode !== 'serial_only' && currentTracking && (
-          <div className="glass stat-accent-blue rounded-xl p-5 text-center">
+          <div className="glass stat-accent-blue rounded-xl p-6 text-center">
             <p className="text-xs text-air-blue uppercase tracking-wider font-bold">Current Box</p>
             <p className="text-base font-mono text-white mt-1.5 break-all">{currentTracking}</p>
-            <p className="text-4xl font-black text-white mt-2">{currentTrackingSerials}</p>
+            <p className="text-5xl font-black text-white mt-2">{currentTrackingSerials}</p>
             <p className="text-xs text-air-blue/60 font-medium">item{currentTrackingSerials !== 1 ? 's' : ''} scanned</p>
           </div>
         )}
+
+        {/* ═══ SESSION TOTALS (subdued) ═══ */}
+        <div className="text-center">
+          <p className="text-[10px] uppercase tracking-widest text-air-blue/40 font-semibold mb-1">Session Totals</p>
+          <div className="flex justify-center gap-6 opacity-60">
+            <div>
+              <span className="text-lg font-bold text-white">{trackingCount}</span>
+              <span className="text-xs text-air-blue/60 ml-1.5">boxes</span>
+            </div>
+            <div className="border-l border-air-blue/20 pl-6">
+              <span className="text-lg font-bold text-white">{serialCount}</span>
+              <span className="text-xs text-air-blue/60 ml-1.5">items</span>
+            </div>
+          {escalatedCount > 0 && (
+            <div className="border-l border-air-blue/20 pl-6">
+              <span className="text-lg font-bold text-terra">{escalatedCount}</span>
+              <span className="text-xs text-terra/60 ml-1.5">problems</span>
+            </div>
+          )}
+          </div>
+        </div>
 
         {/* ═══ LOT MODE BANNER ═══ */}
         {lotMode && (
@@ -979,6 +1161,16 @@ export default function Scanner() {
             </button>
           )}
         </div>
+
+        {/* ═══ REPORT AN ISSUE (always visible when session active) ═══ */}
+        {session && !lotMode && (
+          <button
+            onClick={() => { setShowFlagModal(true); setInputDisabled(true) }}
+            className="w-full py-3 rounded-xl border-2 border-yellow-500/30 text-yellow-400/80 font-bold text-sm hover:bg-yellow-500/10 transition uppercase tracking-wider"
+          >
+            Report an Issue
+          </button>
+        )}
 
         {/* ═══ CAN'T SCAN / UPC — PRODUCT PICKER ═══ */}
         {showCantScan && (

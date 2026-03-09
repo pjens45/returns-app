@@ -537,12 +537,22 @@ export default function Scanner() {
     }
   }, [mode, currentTracking, lotMode, resetInactivity])
 
+  const lastTrackingScanRef = useRef({ value: '', time: 0 })
+
   const handleTrackingScan = async (value) => {
     if (!validateTracking(value)) {
       const reason = getTrackingRejectReason(value)
       handleFail(reason || 'Invalid tracking number')
       return
     }
+
+    // Dedup: reject if same tracking scanned within 3 seconds (scanner double-fire)
+    const now = Date.now()
+    const last = lastTrackingScanRef.current
+    if (last.value === value && now - last.time < 3000) {
+      return // silently ignore duplicate
+    }
+    lastTrackingScanRef.current = { value, time: now }
 
     const carrier = detectCarrier(value)
     await addScan({

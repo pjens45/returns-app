@@ -6,6 +6,7 @@ import { generateCSV, generateCSVRows, CSV_HEADERS, generateTrackingSummaryCSV, 
 import { getPendingCount, getFailedCount, getLastSuccessTime, enqueueSync } from '../sync/syncQueue'
 import { flushNow } from '../sync/syncEngine'
 import { logInfo } from '../utils/appLogger'
+import { sendLogExport } from '../utils/issueNotifier'
 
 const MODES = [
   { value: 'tracking_only', label: 'Tracking Only' },
@@ -697,9 +698,31 @@ export default function Admin() {
         {/* Logs Tab */}
         {tab === 'logs' && (
           <div className="glass rounded-xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h2 className="text-sm font-medium text-air-blue uppercase tracking-wider">App Logs</h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                <button
+                  onClick={async () => {
+                    const allLogs = await db.appLogs.orderBy('timestamp').reverse().toArray()
+                    const json = JSON.stringify(allLogs, null, 2)
+                    // Download locally
+                    const blob = new Blob([json], { type: 'application/json' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `app-logs-${new Date().toISOString().slice(0, 10)}.json`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                    // Email summary (warn + error only, last 50)
+                    const important = allLogs.filter(l => l.level === 'warn' || l.level === 'error').slice(0, 50)
+                    if (important.length > 0) {
+                      sendLogExport(important)
+                    }
+                  }}
+                  className="px-3 py-1 rounded text-xs font-medium bg-moss/20 text-moss border border-moss/30 hover:bg-moss/30 transition"
+                >
+                  Export Logs
+                </button>
                 {['all', 'warn', 'error'].map(f => (
                   <button
                     key={f}
@@ -754,6 +777,9 @@ export default function Admin() {
           </div>
         )}
       </main>
+      <div className="text-center py-2 text-[10px] text-air-blue/30">
+        v{__APP_VERSION__}
+      </div>
     </div>
   )
 }

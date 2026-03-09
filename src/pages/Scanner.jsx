@@ -537,8 +537,6 @@ export default function Scanner() {
     }
   }, [mode, currentTracking, lotMode, resetInactivity])
 
-  const lastTrackingScanRef = useRef({ value: '', time: 0 })
-
   const handleTrackingScan = async (value) => {
     if (!validateTracking(value)) {
       const reason = getTrackingRejectReason(value)
@@ -546,13 +544,17 @@ export default function Scanner() {
       return
     }
 
-    // Dedup: reject if same tracking scanned within 3 seconds (scanner double-fire)
-    const now = Date.now()
-    const last = lastTrackingScanRef.current
-    if (last.value === value && now - last.time < 3000) {
-      return // silently ignore duplicate
+    // Dedup: if this tracking already exists in the current session, just switch to it
+    const alreadyScanned = scansRef.current.find(
+      s => s.scanType === 'Tracking' && s.value === value && !s.voidedAt
+    )
+    if (alreadyScanned) {
+      if (currentTracking !== value) {
+        setCurrentTracking(value)
+        flash(`Switched to box: ${value}`, 'info')
+      }
+      return // never record the same tracking twice in a session
     }
-    lastTrackingScanRef.current = { value, time: now }
 
     const carrier = detectCarrier(value)
     await addScan({
@@ -1489,6 +1491,11 @@ export default function Scanner() {
           </div>
         </div>
       )}
+
+      {/* ═══ VERSION FOOTER ═══ */}
+      <div className="text-center py-2 text-[10px] text-air-blue/30">
+        v{__APP_VERSION__}
+      </div>
     </div>
   )
 }

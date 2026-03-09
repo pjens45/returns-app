@@ -15,7 +15,7 @@ import ReportProblemModal from '../components/ReportProblemModal'
 import { playSuccess, playError, playAction } from '../utils/sounds'
 import { logInfo, logWarn, logError, pruneAppLogs } from '../utils/appLogger'
 import ReportIssueModal from '../components/ReportIssueModal'
-import { sendIssueNotification } from '../utils/issueNotifier'
+import { sendIssueNotification, sendUnknownProductAlert } from '../utils/issueNotifier'
 import SyncHealthIndicator from '../components/SyncHealthIndicator'
 import { useSyncHealth } from '../hooks/useSyncHealth'
 
@@ -295,6 +295,17 @@ export default function Scanner() {
       setScans(prev => [...prev, scan])
       setFailCount(0)
       enqueueSync(scan)
+      // Alert on unknown products
+      if (scanData.scanType === 'Serial' && (scanData.productType === 'Unknown Product' || !scanData.productType)) {
+        sendUnknownProductAlert({
+          serialValue: scanData.value,
+          prefix: scanData.value?.substring(0, 3) || '',
+          operatorName: user.username,
+          trackingNumber: scanData.trackingNumber || '',
+          timestamp: now,
+          deviceId: deviceIdRef.current,
+        })
+      }
       logInfo('scan', `${scanData.scanType} recorded: ${scanData.value}`, { scanType: scanData.scanType, value: scanData.value, status: scanData.status, productType: scanData.productType })
     } catch (err) {
       console.error('[DB WRITE FAILED] addScan:', err)

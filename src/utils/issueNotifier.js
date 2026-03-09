@@ -39,6 +39,18 @@ export function sendIssueNotification({ category, note, trackingNumber, operator
   }))
 }
 
+export function sendUnknownProductAlert({ serialValue, prefix, operatorName, trackingNumber, timestamp, deviceId }) {
+  fireJsonp(new URLSearchParams({
+    action: 'unknownProduct',
+    serialValue,
+    prefix: prefix || '',
+    trackingNumber: trackingNumber || '',
+    operatorName: operatorName || '',
+    timestamp,
+    deviceId: deviceId || '',
+  }))
+}
+
 export function sendLogExport(logs) {
   // Send a summary of warn/error logs via email
   const summary = logs.map(l =>

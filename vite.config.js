@@ -7,6 +7,7 @@ const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  base: process.env.GITLAB_PAGES ? '/returns-app/' : '/',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },

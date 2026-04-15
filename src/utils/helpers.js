@@ -16,7 +16,8 @@ export const PRODUCT_PREFIX_MAP = {
   '014': 'Simple Fan Speed Controller',
   '015': 'Simple Astronomical Timer',
   '017': 'Simple Nightlight',
-  '018': 'Simple Timer Switch',
+  '018': 'Simple Timer / Ventilation Timer',
+  '062': 'Simple Dimmer (Square)',
   // Backplates
   '00B': '1-gang Quick Wire Backplate',
   '00C': '2-gang Quick Wire Backplate',
@@ -32,6 +33,13 @@ export const PRODUCT_PREFIX_MAP = {
   '00M': '4-Gang Universal Backplate',
   '005': '2-gang Wired Backplate w/ 1-Outlet (Left)',
   '006': '2-gang Wired Backplate w/ 1-Outlet (Right)',
+  '007': '3-gang Wired Backplate w/ 1-Outlet (Left)',
+  '008': '3-gang Wired Backplate w/ 1-Outlet (Right)',
+  // Quick Wire Backplates (Foxconn / Empty Models)
+  '00F': '1-Gang Quick Wire Backplate (Empty)',
+  '00G': '2-Gang Quick Wire Backplate (Empty)',
+  '00H': '3-Gang Quick Wire Backplate (Empty)',
+  '00I': '4-Gang Quick Wire Backplate (Empty)',
   // Faceplates (no serial — logged via Can't Scan or UPC)
   'FP1': '1-Gang Faceplate',
   'FP1H': '1-Gang Faceplate (Holly)',
@@ -41,6 +49,13 @@ export const PRODUCT_PREFIX_MAP = {
   'FP2M': '2-Gang Faceplate (Mushroom)',
   'FP3': '3-Gang Faceplate',
   'FP4': '4-Gang Faceplate',
+  'FPO3': '3-Gang Faceplate w/ Outlet',
+  // Outlets & Outlet Covers (no serial — UPC or manual select)
+  'OT1': 'Simple Outlet',
+  'OT2': 'USB Outlet',
+  'OT3': 'GFCI Outlet',
+  'OC1': '1-Gang Outlet Cover',
+  'OC2': '2-Gang Outlet Cover',
 }
 
 // UPC barcode → product type mapping (for auto-identification during UPC scan)
@@ -53,6 +68,19 @@ export const UPC_PRODUCT_MAP = {
   '850022963063': '2-Gang Faceplate',
   '850022963636': '2-Gang Faceplate (Holly)',
   '850022963575': '2-Gang Faceplate (Mushroom)',
+  // 3-Gang & 4-Gang Faceplates
+  '850022963070': '3-Gang Faceplate',
+  '850022963087': '4-Gang Faceplate',
+  '853006008071': '3-Gang Faceplate w/ Outlet',
+  // Simple Switches
+  '853006008620': 'Multiway Rocker Switch (3 and 4-Way)',
+  // Outlets
+  '850022963414': 'Simple Outlet',
+  '850022963452': 'USB Outlet',
+  '850022963445': 'GFCI Outlet',
+  // Outlet Covers
+  '850022963421': '1-Gang Outlet Cover',
+  '850022963438': '2-Gang Outlet Cover',
 }
 
 export function getProductType(serial) {

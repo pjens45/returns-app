@@ -41,11 +41,12 @@ Validation rules (from returns app):
 | 016 | 3-Way Rocker Switch |
 | 012 | Multiway Rocker Switch (3 and 4-Way) |
 | 061 | Simple Dimmer |
+| 062 | Simple Dimmer (Square) |
 | 070 | Simple Motion Switch |
 | 014 | Simple Fan Speed Controller |
 | 015 | Simple Astronomical Timer |
 | 017 | Simple Nightlight |
-| 018 | Simple Timer Switch |
+| 018 | Simple Timer / Ventilation Timer |
 
 ### Backplates (have serial numbers)
 
@@ -57,10 +58,16 @@ Validation rules (from returns app):
 | 003 | 4-gang Wired Backplate |
 | 005 | 2-gang Wired Backplate w/ 1-Outlet (Left) |
 | 006 | 2-gang Wired Backplate w/ 1-Outlet (Right) |
+| 007 | 3-gang Wired Backplate w/ 1-Outlet (Left) |
+| 008 | 3-gang Wired Backplate w/ 1-Outlet (Right) |
 | 00B | 1-gang Quick Wire Backplate |
 | 00C | 2-gang Quick Wire Backplate |
 | 00D | 3-gang Quick Wire Backplate |
 | 00E | 4-gang Quick Wire Backplate |
+| 00F | 1-Gang Quick Wire Backplate (Empty) |
+| 00G | 2-Gang Quick Wire Backplate (Empty) |
+| 00H | 3-Gang Quick Wire Backplate (Empty) |
+| 00I | 4-Gang Quick Wire Backplate (Empty) |
 | 00J | 1-Gang Universal Backplate |
 | 00K | 2-Gang Universal Backplate |
 | 00L | 3-Gang Universal Backplate |
@@ -76,8 +83,19 @@ Validation rules (from returns app):
 | FP2 | 2-Gang Faceplate | 850022963063 |
 | FP2H | 2-Gang Faceplate (Holly) | 850022963636 |
 | FP2M | 2-Gang Faceplate (Mushroom) | 850022963575 |
-| FP3 | 3-Gang Faceplate | — |
-| FP4 | 4-Gang Faceplate | — |
+| FP3 | 3-Gang Faceplate | 850022963070 |
+| FP4 | 4-Gang Faceplate | 850022963087 |
+| FPO3 | 3-Gang Faceplate w/ Outlet | 853006008071 |
+
+### Outlets & Outlet Covers (no serial — identified by UPC barcode or manual selection)
+
+| Code | Product Name | UPC |
+|------|-------------|-----|
+| OT1 | Simple Outlet | 850022963414 |
+| OT2 | USB Outlet | 850022963452 |
+| OT3 | GFCI Outlet | 850022963445 |
+| OC1 | 1-Gang Outlet Cover | 850022963421 |
+| OC2 | 2-Gang Outlet Cover | 850022963438 |
 
 ## Lot Number
 

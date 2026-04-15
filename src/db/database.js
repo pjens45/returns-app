@@ -86,6 +86,12 @@ export async function seedDatabase() {
     '2-Gang Faceplate (Mushroom)',
     '3-Gang Faceplate',
     '4-Gang Faceplate',
+    '3-Gang Faceplate w/ Outlet',
+    'Simple Outlet',
+    'USB Outlet',
+    'GFCI Outlet',
+    '1-Gang Outlet Cover',
+    '2-Gang Outlet Cover',
   ]
   const upcSetting = await db.settings.get('upcAllowedProducts')
   if (!upcSetting || (Array.isArray(upcSetting.value) && upcSetting.value.length === 0)) {

@@ -424,6 +424,18 @@ export default function Scanner() {
     resetInactivity()
     const value = raw.trim()
 
+    // Silently ignore URL scans (e.g. USPS QR codes like https://qr.usps.com/...)
+    if (/^https?:\/\//i.test(value)) {
+      logInfo('scan', 'Ignored URL scan', { value })
+      return
+    }
+
+    // Silently ignore 420+ZIP fragments (partial label scans, 8-9 digits starting with 420)
+    if (/^420\d{5,6}$/.test(value)) {
+      logInfo('scan', 'Ignored 420+ZIP fragment', { value })
+      return
+    }
+
     // If in lot mode, route all scans to lot handler
     if (lotMode) {
       return handleLotScan(value)

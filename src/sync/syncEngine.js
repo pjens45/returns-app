@@ -173,10 +173,14 @@ function sendJsonpBatch(records, reqId) {
     }
 
     function cleanup() {
-      delete window[cbName]
-      if (script.parentNode) {
-        script.parentNode.removeChild(script)
-      }
+      // Delay cleanup so the JSONP callback is still on window when the
+      // <script> executes (avoids "ReferenceError: _syncCb_... is not defined")
+      setTimeout(() => {
+        delete window[cbName]
+        if (script.parentNode) {
+          script.parentNode.removeChild(script)
+        }
+      }, 500)
     }
 
     document.head.appendChild(script)

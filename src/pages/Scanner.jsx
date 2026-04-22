@@ -1470,7 +1470,7 @@ export default function Scanner() {
       )}
 
       {/* ═══ VERSION FOOTER ═══ */}
-      <div className="text-center py-2 text-[10px] text-air-blue/30">
+      <div className="text-center py-3 text-xs text-air-blue/40 font-mono">
         v{__APP_VERSION__}
       </div>
     </div>

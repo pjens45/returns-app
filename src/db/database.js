@@ -56,18 +56,25 @@ export async function getDeviceId() {
 
 // Seed defaults on first run
 export async function seedDatabase() {
-  const adminExists = await db.users.get('admin')
-  if (!adminExists) {
-    await db.users.put({
-      id: 'admin',
-      username: 'admin',
-      password: 'admin',
-      role: 'admin',
-      mode: 'tracking_serial',
-      securityQuestion: 'What is the default password?',
-      securityAnswer: 'admin',
-      createdAt: new Date().toISOString(),
-    })
+  // Default accounts — seeded on first run or if missing.
+  // Add new operators here; they'll auto-create on next app load.
+  const DEFAULT_USERS = [
+    { id: 'admin', username: 'admin', password: 'D3@kowork1', role: 'admin', mode: 'tracking_serial' },
+    { id: 'pjens', username: 'pjens', password: 'D3@kowork1', role: 'operator', mode: 'tracking_serial' },
+    { id: 'NEXgistics1', username: 'NEXgistics1', password: '1161vision', role: 'operator', mode: 'tracking_serial' },
+    { id: 'NEXgistics2', username: 'NEXgistics2', password: 'corfuny', role: 'operator', mode: 'tracking_serial' },
+  ]
+
+  for (const u of DEFAULT_USERS) {
+    const exists = await db.users.get(u.id)
+    if (!exists) {
+      await db.users.put({
+        ...u,
+        securityQuestion: '',
+        securityAnswer: '',
+        createdAt: new Date().toISOString(),
+      })
+    }
   }
 
   const timeoutSetting = await db.settings.get('sessionTimeout')
@@ -96,6 +103,13 @@ export async function seedDatabase() {
   const upcSetting = await db.settings.get('upcAllowedProducts')
   if (!upcSetting || (Array.isArray(upcSetting.value) && upcSetting.value.length === 0)) {
     await db.settings.put({ key: 'upcAllowedProducts', value: DEFAULT_UPC_PRODUCTS })
+  } else {
+    // Merge in any new defaults that were added after initial seed
+    const current = upcSetting.value || []
+    const missing = DEFAULT_UPC_PRODUCTS.filter(p => !current.includes(p))
+    if (missing.length > 0) {
+      await db.settings.put({ key: 'upcAllowedProducts', value: [...current, ...missing] })
+    }
   }
 
   // Seed discard list

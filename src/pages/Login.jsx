@@ -73,6 +73,7 @@ export default function Login() {
         </form>
 
         <p className="text-center text-air-blue/40 text-xs mt-4">Deako Returns Processing</p>
+        <p className="text-center text-air-blue/30 text-[10px] mt-2 font-mono">v{__APP_VERSION__}</p>
         </div>
       </div>
       </div>

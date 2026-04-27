@@ -42,13 +42,51 @@ export const PRODUCT_PREFIX_MAP = {
   '00I': '4-Gang Quick Wire Backplate (Empty)',
   // Faceplates (no serial — logged via Can't Scan or UPC)
   'FP1': '1-Gang Faceplate',
+  // Design faceplates — Medallion collection (have UPCs)
   'FP1H': '1-Gang Faceplate (Holly)',
   'FP1M': '1-Gang Faceplate (Mushroom)',
+  'FP1F': '1-Gang Faceplate (Floral)',
+  'FP1W': '1-Gang Faceplate (Wildflower)',
+  'FP1SN': '1-Gang Faceplate (Snowman)',
+  'FP1PH': '1-Gang Faceplate (Pastel Holly)',
+  'FP1SF': '1-Gang Faceplate (Snowflake)',
   'FP2': '2-Gang Faceplate',
   'FP2H': '2-Gang Faceplate (Holly)',
   'FP2M': '2-Gang Faceplate (Mushroom)',
+  'FP2F': '2-Gang Faceplate (Floral)',
+  'FP2W': '2-Gang Faceplate (Wildflower)',
+  'FP2SN': '2-Gang Faceplate (Snowman)',
+  'FP2PH': '2-Gang Faceplate (Pastel Holly)',
+  'FP2SF': '2-Gang Faceplate (Snowflake)',
   'FP3': '3-Gang Faceplate',
+  'FP3H': '3-Gang Faceplate (Holly)',
+  'FP3M': '3-Gang Faceplate (Mushroom)',
+  'FP3F': '3-Gang Faceplate (Floral)',
+  'FP3W': '3-Gang Faceplate (Wildflower)',
+  'FP3SN': '3-Gang Faceplate (Snowman)',
+  'FP3PH': '3-Gang Faceplate (Pastel Holly)',
+  'FP3SF': '3-Gang Faceplate (Snowflake)',
   'FP4': '4-Gang Faceplate',
+  'FP4H': '4-Gang Faceplate (Holly)',
+  'FP4M': '4-Gang Faceplate (Mushroom)',
+  'FP4F': '4-Gang Faceplate (Floral)',
+  'FP4W': '4-Gang Faceplate (Wildflower)',
+  'FP4SN': '4-Gang Faceplate (Snowman)',
+  'FP4PH': '4-Gang Faceplate (Pastel Holly)',
+  'FP4SF': '4-Gang Faceplate (Snowflake)',
+  // Design faceplates — Beswitched collection (no UPCs yet)
+  'FPMA': 'Faceplate (Marble)',
+  'FPFS': 'Faceplate (Floral Sketch)',
+  'FPBT': 'Faceplate (Blue Tulle)',
+  'FPBF': 'Faceplate (Blue Grey Feather)',
+  'FPRF': 'Faceplate (Retro Flower)',
+  'FPRB': 'Faceplate (Rainbow)',
+  'FPSP': 'Faceplate (Spring Floral)',
+  'FPTN': 'Faceplate (Tennis)',
+  'FPMO': 'Faceplate (Monstera)',
+  'FPGO': 'Faceplate (Golf)',
+  'FPBB': 'Faceplate (Baseball)',
+  'FPBBL': 'Faceplate (Blue Baseball)',
   'FPO3': '3-Gang Faceplate w/ Outlet',
   // Outlets & Outlet Covers (no serial — UPC or manual select)
   'OT1': 'Simple Outlet',
@@ -64,13 +102,38 @@ export const UPC_PRODUCT_MAP = {
   '850022963056': '1-Gang Faceplate',
   '850022963629': '1-Gang Faceplate (Holly)',
   '850022963568': '1-Gang Faceplate (Mushroom)',
+  '850022963582': '1-Gang Faceplate (Floral)',
+  '850022963605': '1-Gang Faceplate (Wildflower)',
+  '850022963643': '1-Gang Faceplate (Snowman)',
+  '850022963667': '1-Gang Faceplate (Pastel Holly)',
+  '850022963681': '1-Gang Faceplate (Snowflake)',
   // 2-Gang Faceplates
   '850022963063': '2-Gang Faceplate',
   '850022963636': '2-Gang Faceplate (Holly)',
   '850022963575': '2-Gang Faceplate (Mushroom)',
-  // 3-Gang & 4-Gang Faceplates
+  '850022963599': '2-Gang Faceplate (Floral)',
+  '850022963612': '2-Gang Faceplate (Wildflower)',
+  '850022963650': '2-Gang Faceplate (Snowman)',
+  '850022963674': '2-Gang Faceplate (Pastel Holly)',
+  '850022963698': '2-Gang Faceplate (Snowflake)',
+  // 3-Gang Faceplates
   '850022963070': '3-Gang Faceplate',
+  '850022963766': '3-Gang Faceplate (Holly)',
+  '850022963704': '3-Gang Faceplate (Mushroom)',
+  '850022963728': '3-Gang Faceplate (Floral)',
+  '850022963742': '3-Gang Faceplate (Wildflower)',
+  '850022963780': '3-Gang Faceplate (Snowman)',
+  '850022963803': '3-Gang Faceplate (Pastel Holly)',
+  '850022963827': '3-Gang Faceplate (Snowflake)',
+  // 4-Gang Faceplates
   '850022963087': '4-Gang Faceplate',
+  '850022963773': '4-Gang Faceplate (Holly)',
+  '850022963711': '4-Gang Faceplate (Mushroom)',
+  '850022963735': '4-Gang Faceplate (Floral)',
+  '850022963759': '4-Gang Faceplate (Wildflower)',
+  '850022963797': '4-Gang Faceplate (Snowman)',
+  '850022963810': '4-Gang Faceplate (Pastel Holly)',
+  '850022963834': '4-Gang Faceplate (Snowflake)',
   '853006008071': '3-Gang Faceplate w/ Outlet',
   // Simple Switches
   '853006008620': 'Multiway Rocker Switch (3 and 4-Way)',
@@ -124,8 +187,15 @@ export const REJECTED_TRACKING_BARCODES = new Set([
   '853006008712', '853006008996', '850022963018', '850022963001',
   '853006008729',
   // Faceplates
-  '850022963629', '850022963568', // 1-Gang: Holly, Mushroom
-  '850022963636', '850022963575', // 2-Gang: Holly, Mushroom
+  // Design faceplates — Medallion collection
+  '850022963629', '850022963568', '850022963582', '850022963605', // 1-Gang: Holly, Mushroom, Floral, Wildflower
+  '850022963643', '850022963667', '850022963681',                 // 1-Gang: Snowman, Pastel Holly, Snowflake
+  '850022963636', '850022963575', '850022963599', '850022963612', // 2-Gang: Holly, Mushroom, Floral, Wildflower
+  '850022963650', '850022963674', '850022963698',                 // 2-Gang: Snowman, Pastel Holly, Snowflake
+  '850022963766', '850022963704', '850022963728', '850022963742', // 3-Gang: Holly, Mushroom, Floral, Wildflower
+  '850022963780', '850022963803', '850022963827',                 // 3-Gang: Snowman, Pastel Holly, Snowflake
+  '850022963773', '850022963711', '850022963735', '850022963759', // 4-Gang: Holly, Mushroom, Floral, Wildflower
+  '850022963797', '850022963810', '850022963834',                 // 4-Gang: Snowman, Pastel Holly, Snowflake
 ])
 
 export function is420Zip(value) {

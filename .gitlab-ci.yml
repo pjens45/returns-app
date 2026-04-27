@@ -8,6 +8,7 @@ pages:
   script:
     - npm install
     - GITLAB_PAGES=true VITE_SHEETS_WEBHOOK_URL=$VITE_SHEETS_WEBHOOK_URL VITE_SHEETS_WEBHOOK_SECRET=$VITE_SHEETS_WEBHOOK_SECRET npm run build
+    - rm -rf public
     - mv dist public
   artifacts:
     paths:

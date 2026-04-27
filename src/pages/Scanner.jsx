@@ -1017,7 +1017,7 @@ export default function Scanner() {
           </div>
           <div className="flex items-center gap-2 pl-2 border-l border-air-blue/20">
             <span className="text-sm text-beige/60">{user?.username}</span>
-            <SyncHealthIndicator {...syncHealth} />
+            {user?.role === 'admin' && <SyncHealthIndicator {...syncHealth} />}
           </div>
         </div>
         <div className="flex items-center gap-3">

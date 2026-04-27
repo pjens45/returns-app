@@ -72,3 +72,15 @@ export async function getLastSuccessTime() {
 export async function setLastSuccessTime(isoString) {
   await db.settings.put({ key: 'syncLastSuccess', value: isoString })
 }
+
+/**
+ * Clear all failed items from the queue (attempts >= 5).
+ * Use when failures are stale (e.g. data already synced via a previous race condition).
+ */
+export async function clearFailed() {
+  const failed = await db.syncQueue.where('attempts').aboveOrEqual(5).toArray()
+  if (failed.length > 0) {
+    await db.syncQueue.bulkDelete(failed.map(f => f.id))
+  }
+  return failed.length
+}

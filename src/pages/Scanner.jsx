@@ -18,6 +18,8 @@ import ReportIssueModal from '../components/ReportIssueModal'
 import { sendIssueNotification, sendUnknownProductAlert } from '../utils/issueNotifier'
 import SyncHealthIndicator from '../components/SyncHealthIndicator'
 import { useSyncHealth } from '../hooks/useSyncHealth'
+import OnboardingTutorial from '../components/OnboardingTutorial'
+import DeakoLogo from '../components/DeakoLogo'
 
 export default function Scanner() {
   const { user, logout, resetInactivity, setOnTimeout, timeoutWarning } = useAuth()
@@ -40,6 +42,8 @@ export default function Scanner() {
   const [lotMode, setLotMode] = useState(false)
   const [showCantScan, setShowCantScan] = useState(false)
   const [showAllDT, setShowAllDT] = useState(false)
+  const [identifyMode, setIdentifyMode] = useState(null) // null | 'triage' | 'backplate' | 'faceplate' | 'unidentified'
+  const [unidentifiedNote, setUnidentifiedNote] = useState('')
   const [pendingUpc, setPendingUpc] = useState(null) // UPC value waiting for product type selection
   const [upcAllowedProducts, setUpcAllowedProducts] = useState([])
   const [lotPartials, setLotPartials] = useState({ lot: null, deviceType: null }) // collected so far
@@ -80,9 +84,9 @@ export default function Scanner() {
         }
       }
 
-      // First-session detection for onboarding
+      // Show tutorial on first 3 logins for each operator
       const priorSessions = await db.sessions.where('operatorId').equals(user.id).count()
-      if (priorSessions === 0) {
+      if (priorSessions < 3) {
         setIsFirstSession(true)
         setShowWelcome(true)
       }
@@ -670,6 +674,39 @@ export default function Scanner() {
     }
   }
 
+  const handleUnidentifiedProduct = async (note) => {
+    setShowCantScan(false)
+    setShowAllDT(false)
+    setIdentifyMode(null)
+    setUnidentifiedNote('')
+    setInputDisabled(false)
+    if (mode === 'tracking_serial' && !currentTracking) {
+      flash('Please scan a Box Tracking Number first', 'error')
+      return
+    }
+    await addScan({
+      scanType: 'Serial',
+      value: `UNIDENTIFIED-${Date.now()}`,
+      productType: 'Unidentified Product',
+      status: 'Flagged',
+      escalationReason: 'Unidentified product',
+      notes: note || 'Operator could not identify product',
+      trackingNumber: currentTracking,
+    })
+    enqueueSync()
+    flash('Unidentified product flagged for review', 'flag')
+    logInfo('scan', 'Unidentified product logged', { note, trackingNumber: currentTracking })
+  }
+
+  const resetCantScan = () => {
+    setShowCantScan(false)
+    setShowAllDT(false)
+    setIdentifyMode(null)
+    setUnidentifiedNote('')
+    setInputDisabled(false)
+    setPendingUpc(null)
+  }
+
   const handleManualSubmit = async ({ value, note, forceTracking }) => {
     if (processingRef.current) return
     processingRef.current = true
@@ -957,7 +994,7 @@ export default function Scanner() {
   })
 
   return (
-    <div className="min-h-screen w-full flex flex-col">
+    <div className="min-h-screen w-full flex flex-col geo-bg">
       {/* Hidden always-focused scan input */}
       <ScanInput onScan={handleScan} placeholder="" disabled={inputDisabled} />
 
@@ -971,13 +1008,27 @@ export default function Scanner() {
       )}
 
       {/* ═══ HEADER ═══ */}
-      <header className="glass-solid header-glow px-5 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold text-white tracking-tight">Returns Check-In</h1>
-          <span className="text-sm text-beige/60">{user?.username}</span>
-          <SyncHealthIndicator {...syncHealth} />
+      <header className="glass-solid header-glow px-5 py-3">
+        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-end gap-2">
+            <DeakoLogo height={36} color="#FAFAFA" />
+            <span className="text-air-blue/50 font-medium text-sm pb-[3px]">Returns Check In</span>
+          </div>
+          <div className="flex items-center gap-2 pl-2 border-l border-air-blue/20">
+            <span className="text-sm text-beige/60">{user?.username}</span>
+            <SyncHealthIndicator {...syncHealth} />
+          </div>
         </div>
         <div className="flex items-center gap-3">
+          {!isFirstSession && !showWelcome && (
+            <button
+              onClick={() => setShowWelcome(true)}
+              className="text-xs px-3 py-2 rounded-lg border border-moss/30 text-moss hover:bg-moss/10 transition"
+            >
+              Tutorial
+            </button>
+          )}
           {user?.role === 'admin' && (
             <button
               onClick={() => navigate('/admin')}
@@ -993,6 +1044,7 @@ export default function Scanner() {
             Finish Work
           </button>
         </div>
+        </div>
       </header>
 
       {/* ═══ TIMEOUT WARNING BANNER ═══ */}
@@ -1004,20 +1056,9 @@ export default function Scanner() {
 
       <main className="flex-1 p-4 max-w-2xl w-full mx-auto space-y-5 pb-8">
 
-        {/* ═══ WELCOME BANNER (first session only) ═══ */}
+        {/* ═══ ONBOARDING TUTORIAL (first session only) ═══ */}
         {showWelcome && (
-          <div className="rounded-xl p-5 bg-moss/15 border-2 border-moss/40 text-center space-y-2">
-            <p className="text-sm font-bold text-moss uppercase tracking-wider">Welcome to Returns Check-In</p>
-            <p className="text-xs text-beige/80 leading-relaxed">
-              Scan a <span className="text-white font-medium">box tracking number</span> to start, then scan each <span className="text-white font-medium">item inside</span>. When the box is done, scan the next tracking number.
-            </p>
-            <button
-              onClick={() => setShowWelcome(false)}
-              className="mt-1 text-xs px-4 py-1.5 rounded-lg border border-moss/30 text-moss hover:bg-moss/20 transition font-medium"
-            >
-              Got it
-            </button>
-          </div>
+          <OnboardingTutorial onComplete={() => setShowWelcome(false)} />
         )}
 
         {/* ═══ CURRENT BOX (primary focus) ═══ */}
@@ -1151,44 +1192,174 @@ export default function Scanner() {
           )}
         </div>
 
-        {/* ═══ REPORT AN ISSUE (always visible when session active) ═══ */}
+        {/* ═══ HELP (always visible when session active) ═══ */}
         {session && !lotMode && (
           <button
             onClick={() => { setShowFlagModal(true); setInputDisabled(true) }}
             className="w-full py-3 rounded-xl border-2 border-yellow-500/30 text-yellow-400/80 font-bold text-sm hover:bg-yellow-500/10 transition uppercase tracking-wider"
           >
-            Report an Issue
+            Help
           </button>
         )}
 
         {/* ═══ CAN'T SCAN / UPC — PRODUCT PICKER ═══ */}
         {showCantScan && (
           <div className={`rounded-xl p-5 ${pendingUpc ? 'bg-yellow-500/10 border-2 border-yellow-500/40' : 'bg-terra/10 border-2 border-terra/40'} space-y-3 text-center`}>
-            <h2 className={`text-sm font-bold uppercase tracking-wider ${pendingUpc ? 'text-yellow-300' : 'text-terra'}`}>
-              {pendingUpc ? 'UPC Scanned — Select Product Type' : 'QR Damaged — Select Product Type'}
-            </h2>
-            <p className="text-xs text-beige/80">{pendingUpc ? `Barcode: ${pendingUpc}` : 'What type of device is it?'}</p>
+
+            {/* --- UPC mode (barcode scanned, pick product) --- */}
             {pendingUpc ? (
-              /* UPC mode — only show admin-allowed products */
-              <div className="grid grid-cols-1 gap-2">
-                {Object.entries(PRODUCT_PREFIX_MAP)
-                  .filter(([, name]) => upcAllowedProducts.includes(name))
-                  .map(([prefix, name]) => (
+              <>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-yellow-300">UPC Scanned — Select Product Type</h2>
+                <p className="text-xs text-beige/80">Barcode: {pendingUpc}</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {Object.entries(PRODUCT_PREFIX_MAP)
+                    .filter(([, name]) => upcAllowedProducts.includes(name))
+                    .map(([prefix, name]) => (
+                      <button
+                        key={prefix}
+                        onClick={() => handleCantScan(name)}
+                        className="py-3 px-4 rounded-lg glass border border-yellow-500/20 text-white text-sm font-medium hover:bg-yellow-500/15 transition text-left"
+                      >
+                        <span className="font-mono text-yellow-300">{prefix}</span> {name}
+                      </button>
+                    ))}
+                  {upcAllowedProducts.length === 0 && (
+                    <p className="text-sm text-beige/50 py-2">No products enabled for UPC check-in. Ask admin to enable in Settings.</p>
+                  )}
+                </div>
+              </>
+
+            /* --- Identify helper: triage --- */
+            ) : identifyMode === 'triage' ? (
+              <>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-terra">What kind of product is it?</h2>
+                <p className="text-xs text-beige/80">Pick the closest category</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={() => setIdentifyMode('backplate')}
+                    className="py-4 px-4 rounded-lg glass border border-air-blue/20 text-white text-sm font-medium hover:bg-air-blue/15 transition"
+                  >
+                    <span className="text-lg">🔌</span> <strong>Backplate</strong>
+                    <span className="block text-xs text-beige/60 mt-1">The part that mounts on the wall with wiring — has switch socket(s)</span>
+                  </button>
+                  <button
+                    onClick={() => setIdentifyMode('faceplate')}
+                    className="py-4 px-4 rounded-lg glass border border-air-blue/20 text-white text-sm font-medium hover:bg-air-blue/15 transition"
+                  >
+                    <span className="text-lg">🎨</span> <strong>Faceplate</strong>
+                    <span className="block text-xs text-beige/60 mt-1">The decorative snap-on cover — no wiring, clips onto backplate</span>
+                  </button>
+                  <button
+                    onClick={() => setIdentifyMode('unidentified')}
+                    className="py-4 px-4 rounded-lg glass border border-yellow-500/20 text-yellow-300 text-sm font-medium hover:bg-yellow-500/10 transition"
+                  >
+                    <span className="text-lg">❓</span> <strong>Something Else / No Idea</strong>
+                    <span className="block text-xs text-yellow-300/60 mt-1">Log it for review and move on</span>
+                  </button>
+                </div>
+              </>
+
+            /* --- Identify helper: backplate gang picker --- */
+            ) : identifyMode === 'backplate' ? (
+              <>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-terra">How many switch sockets?</h2>
+                <p className="text-xs text-beige/80">Count the rectangular openings on the backplate</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { gangs: 1, label: '1 Socket', products: [['00B', '1-gang Quick Wire Backplate'], ['00F', '1-Gang Quick Wire Backplate (Empty)'], ['00J', '1-Gang Universal Backplate'], ['000', '1-gang Wired Backplate']] },
+                    { gangs: 2, label: '2 Sockets', products: [['00C', '2-gang Quick Wire Backplate'], ['00G', '2-Gang Quick Wire Backplate (Empty)'], ['00K', '2-Gang Universal Backplate'], ['001', '2-gang Wired Backplate'], ['005', '2-gang Wired Backplate w/ 1-Outlet (Left)'], ['006', '2-gang Wired Backplate w/ 1-Outlet (Right)']] },
+                    { gangs: 3, label: '3 Sockets', products: [['00D', '3-gang Quick Wire Backplate'], ['00H', '3-Gang Quick Wire Backplate (Empty)'], ['00L', '3-Gang Universal Backplate'], ['002', '3-gang Wired Backplate'], ['007', '3-gang Wired Backplate w/ 1-Outlet (Left)'], ['008', '3-gang Wired Backplate w/ 1-Outlet (Right)']] },
+                    { gangs: 4, label: '4 Sockets', products: [['00E', '4-gang Quick Wire Backplate'], ['00I', '4-Gang Quick Wire Backplate (Empty)'], ['00M', '4-Gang Universal Backplate'], ['003', '4-gang Wired Backplate']] },
+                  ].map(({ gangs, label, products }) => (
                     <button
-                      key={prefix}
-                      onClick={() => handleCantScan(name)}
-                      className="py-3 px-4 rounded-lg glass border border-yellow-500/20 text-white text-sm font-medium hover:bg-yellow-500/15 transition text-left"
+                      key={gangs}
+                      onClick={() => {
+                        // Most common backplate for each gang count — pick Quick Wire as default
+                        const defaultProduct = products[0][1]
+                        handleCantScan(defaultProduct)
+                      }}
+                      className="py-4 px-3 rounded-lg glass border border-air-blue/20 text-white text-sm font-bold hover:bg-air-blue/15 transition"
                     >
-                      <span className="font-mono text-yellow-300">{prefix}</span> {name}
+                      <span className="text-2xl block mb-1">{'▪️'.repeat(gangs)}</span>
+                      {label}
                     </button>
                   ))}
-                {upcAllowedProducts.length === 0 && (
-                  <p className="text-sm text-beige/50 py-2">No products enabled for UPC check-in. Ask admin to enable in Settings.</p>
-                )}
-              </div>
-            ) : (
-              /* Can't Scan mode — full shortlist + show all */
+                </div>
+                <button
+                  onClick={() => setIdentifyMode('triage')}
+                  className="text-xs text-air-blue/50 hover:text-air-blue transition mt-1"
+                >
+                  ← Back
+                </button>
+              </>
+
+            /* --- Identify helper: faceplate gang picker --- */
+            ) : identifyMode === 'faceplate' ? (
               <>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-terra">How many switch cutouts?</h2>
+                <p className="text-xs text-beige/80">Count the openings on the faceplate</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { gangs: 1, name: '1-Gang Faceplate' },
+                    { gangs: 2, name: '2-Gang Faceplate' },
+                    { gangs: 3, name: '3-Gang Faceplate' },
+                    { gangs: 4, name: '4-Gang Faceplate' },
+                  ].map(({ gangs, name }) => (
+                    <button
+                      key={gangs}
+                      onClick={() => handleCantScan(name)}
+                      className="py-4 px-3 rounded-lg glass border border-air-blue/20 text-white text-sm font-bold hover:bg-air-blue/15 transition"
+                    >
+                      <span className="text-2xl block mb-1">{'◻️'.repeat(gangs)}</span>
+                      {name}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setIdentifyMode('triage')}
+                  className="text-xs text-air-blue/50 hover:text-air-blue transition mt-1"
+                >
+                  ← Back
+                </button>
+              </>
+
+            /* --- Identify helper: unidentified product --- */
+            ) : identifyMode === 'unidentified' ? (
+              <>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-yellow-300">Log Unidentified Product</h2>
+                <p className="text-xs text-beige/80">Describe the product briefly so it can be identified later</p>
+                <textarea
+                  value={unidentifiedNote}
+                  onChange={(e) => setUnidentifiedNote(e.target.value)}
+                  placeholder="e.g. small white box with no labels, painted faceplate, unknown cable..."
+                  className="w-full p-3 rounded-lg bg-deako-black/50 border border-yellow-500/30 text-white text-sm placeholder-beige/30 focus:outline-none focus:border-yellow-500/60 resize-none"
+                  rows={3}
+                  autoFocus
+                />
+                <button
+                  onClick={() => unidentifiedNote.trim() && handleUnidentifiedProduct(unidentifiedNote.trim())}
+                  disabled={!unidentifiedNote.trim()}
+                  className={`w-full py-3 rounded-lg font-bold text-sm transition ${
+                    unidentifiedNote.trim()
+                      ? 'bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/30'
+                      : 'bg-deako-black/30 border border-air-blue/10 text-beige/30 cursor-not-allowed'
+                  }`}
+                >
+                  Flag for Review & Continue
+                </button>
+                <button
+                  onClick={() => setIdentifyMode('triage')}
+                  className="text-xs text-air-blue/50 hover:text-air-blue transition mt-1"
+                >
+                  ← Back
+                </button>
+              </>
+
+            /* --- Default: standard Can't Scan product picker --- */
+            ) : (
+              <>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-terra">QR Damaged — Select Product Type</h2>
+                <p className="text-xs text-beige/80">What type of device is it?</p>
                 <div className="grid grid-cols-1 gap-2">
                   {[['013', 'Single Pole Rocker Switch'], ['016', '3-Way Rocker Switch'], ['012', 'Multiway Rocker Switch (3 and 4-Way)'], ['00B', '1-gang Quick Wire Backplate'], ['00C', '2-gang Quick Wire Backplate'], ['00D', '3-gang Quick Wire Backplate']].map(([prefix, name]) => (
                     <button
@@ -1222,10 +1393,20 @@ export default function Scanner() {
                       ))}
                   </div>
                 )}
+                {/* Don't know what it is? */}
+                <div className="pt-2 border-t border-terra/20 mt-2">
+                  <button
+                    onClick={() => setIdentifyMode('triage')}
+                    className="text-xs text-yellow-400/70 hover:text-yellow-400 transition font-medium"
+                  >
+                    Don't know what this product is? →
+                  </button>
+                </div>
               </>
             )}
+
             <button
-              onClick={() => { setShowCantScan(false); setShowAllDT(false); setInputDisabled(false); setPendingUpc(null) }}
+              onClick={resetCantScan}
               className="px-5 py-2.5 rounded-lg border border-terra/30 text-terra hover:bg-terra/20 transition text-sm font-bold"
             >
               Cancel
@@ -1470,8 +1651,11 @@ export default function Scanner() {
       )}
 
       {/* ═══ VERSION FOOTER ═══ */}
-      <div className="text-center py-3 text-xs text-air-blue/40 font-mono">
-        v{__APP_VERSION__}
+      <div className="text-center py-3 text-xs text-air-blue/40 space-y-1">
+        <div className="font-mono">v{__APP_VERSION__}</div>
+        <div>
+          App support: <a href="mailto:pjens@deako.com" className="text-air-blue/50 hover:text-air-blue transition">pjens@deako.com</a> · <a href="tel:+12067373736" className="text-air-blue/50 hover:text-air-blue transition">206-737-3736</a>
+        </div>
       </div>
     </div>
   )

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { flushNow } from '../sync/syncEngine'
+import { clearFailed } from '../sync/syncQueue'
 
 const DOT_COLORS = {
   healthy: 'bg-moss',
@@ -23,6 +24,11 @@ function timeAgo(isoString) {
 
 export default function SyncHealthIndicator({ pending, failed, lastSuccess, health }) {
   const [expanded, setExpanded] = useState(false)
+
+  const handleClearFailed = async () => {
+    await clearFailed()
+    setExpanded(false)
+  }
 
   return (
     <div className="relative">
@@ -49,12 +55,22 @@ export default function SyncHealthIndicator({ pending, failed, lastSuccess, heal
             <span className="text-air-blue/60">Failed</span>
             <span className={`font-medium ${failed > 0 ? 'text-terra' : 'text-white'}`}>{failed}</span>
           </div>
-          <button
-            onClick={() => { flushNow(); setExpanded(false) }}
-            className="w-full mt-1 text-xs px-3 py-1.5 rounded-md bg-air-blue/15 text-air-blue hover:bg-air-blue/25 transition font-medium"
-          >
-            Flush Now
-          </button>
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={() => { flushNow(); setExpanded(false) }}
+              className="flex-1 text-xs px-3 py-1.5 rounded-md bg-air-blue/15 text-air-blue hover:bg-air-blue/25 transition font-medium"
+            >
+              Flush Now
+            </button>
+            {failed > 0 && (
+              <button
+                onClick={handleClearFailed}
+                className="flex-1 text-xs px-3 py-1.5 rounded-md bg-terra/15 text-terra hover:bg-terra/25 transition font-medium"
+              >
+                Clear Failed
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

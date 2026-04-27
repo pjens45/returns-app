@@ -103,6 +103,39 @@ body {
   border-color: #BA866A;
 }
 
+/* Geometric background decoration */
+.geo-bg {
+  position: relative;
+  overflow: hidden;
+}
+.geo-bg::before,
+.geo-bg::after {
+  content: '';
+  position: fixed;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Large triangle — Air Blue Medium */
+.geo-bg::before {
+  bottom: 0;
+  right: 0;
+  width: 350px;
+  height: 350px;
+  background: #7597A0;
+  clip-path: polygon(100% 100%, 0% 100%, 100% 0%);
+  opacity: 0.10;
+}
+/* Smaller overlapping triangle — Air Blue Dark */
+.geo-bg::after {
+  bottom: 0;
+  right: 0;
+  width: 220px;
+  height: 220px;
+  background: #1B3747;
+  clip-path: polygon(100% 100%, 20% 100%, 100% 20%);
+  opacity: 0.35;
+}
+
 /* Header glow accent */
 .header-glow {
   box-shadow: 0 1px 0 0 rgba(117, 151, 160, 0.3), 0 4px 20px -4px rgba(117, 151, 160, 0.15);

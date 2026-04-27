@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import DeakoLogo from '../components/DeakoLogo'
 
 export default function Login() {
   const { login } = useAuth()
@@ -24,14 +25,19 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="glass-solid rounded-2xl p-10 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight">Returns Check-In</h1>
-          <p className="text-air-blue mt-2 text-sm">Internal Returns Processing System</p>
-        </div>
+    <div className="min-h-screen flex flex-col geo-bg">
+      {/* Product banner header — mirrors scanner header position */}
+      <div className="w-full flex-shrink-0">
+        <img src="/product-banner.jpeg" alt="Deako products" className="w-full opacity-40" />
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="flex-1 flex items-center justify-center p-4">
+      <div className="glass-solid rounded-2xl w-full max-w-xl overflow-hidden">
+        <div className="px-10 py-6">
+        <h1 className="text-center text-sm font-semibold text-air-blue/60 tracking-tight mb-5">Returns Check In</h1>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-air-blue mb-2 uppercase tracking-wider">Username</label>
             <input
@@ -52,6 +58,7 @@ export default function Login() {
               className="w-full px-4 py-3 rounded-lg bg-deako-black/50 text-white border border-air-blue/30 outline-none focus:border-air-blue transition"
             />
           </div>
+          </div>
 
           {error && (
             <div className="text-terra text-sm text-center font-medium">{error}</div>
@@ -65,7 +72,9 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="text-center text-air-blue/40 text-xs mt-6">Deako Internal Use Only</p>
+        <p className="text-center text-air-blue/40 text-xs mt-4">Deako Returns Processing</p>
+        </div>
+      </div>
       </div>
     </div>
   )

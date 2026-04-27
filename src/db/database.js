@@ -63,6 +63,7 @@ export async function seedDatabase() {
     { id: 'pjens', username: 'pjens', password: 'D3@kowork1', role: 'operator', mode: 'tracking_serial' },
     { id: 'NEXgistics1', username: 'NEXgistics1', password: '1161vision', role: 'operator', mode: 'tracking_serial' },
     { id: 'NEXgistics2', username: 'NEXgistics2', password: 'corfuny', role: 'operator', mode: 'tracking_serial' },
+    { id: 'deal', username: 'deal', password: 'd3@lw/it', role: 'operator', mode: 'tracking_serial' },
   ]
 
   for (const u of DEFAULT_USERS) {

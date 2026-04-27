@@ -28,7 +28,7 @@ export default function Login() {
     <div className="min-h-screen flex flex-col geo-bg">
       {/* Product banner header — mirrors scanner header position */}
       <div className="w-full flex-shrink-0">
-        <img src="/product-banner.jpeg" alt="Deako products" className="w-full opacity-40" />
+        <img src={`${import.meta.env.BASE_URL}product-banner.jpeg`} alt="Deako products" className="w-full opacity-40" />
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4">
